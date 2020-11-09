@@ -42,13 +42,13 @@ class SDBrowseData extends IncludableSpecialPage {
 
 		if ( method_exists( $request, 'getLimitOffsetForUser' ) ) {
 			// MW 1.35+
-			list( $limit, $offset ) = $request->getLimitOffsetForUser(
+			[ $limit, $offset ] = $request->getLimitOffsetForUser(
 				$this->getUser(),
 				$sdgNumResultsPerPage,
 				'sdlimit'
 			);
 		} else {
-			list( $limit, $offset ) = $request->getLimitOffset(
+			[ $limit, $offset ] = $request->getLimitOffset(
 				$sdgNumResultsPerPage,
 				'sdlimit'
 			);
@@ -160,6 +160,7 @@ class SDBrowseData extends IncludableSpecialPage {
 }
 
 class SDBrowseDataPage extends QueryPage {
+
 	var $category = "";
 	var $subcategory = "";
 	var $next_level_subcategories = [];
@@ -167,6 +168,7 @@ class SDBrowseDataPage extends QueryPage {
 	var $applied_filters = [];
 	var $remaining_filters = [];
 	var $show_single_cat = false;
+	private $dbr;
 
 	/**
 	 * Initialize the variables of this page
@@ -174,6 +176,7 @@ class SDBrowseDataPage extends QueryPage {
 	function __construct( $category, $subcategory, $applied_filters, $remaining_filters, $offset, $limit ) {
 		parent::__construct( 'BrowseData' );
 
+		$this->dbr = MediaWikiServices::getInstance()->getService( SDDatabase::class )->getConnection();
 		$this->category = $category;
 		$this->subcategory = $subcategory;
 		$this->applied_filters = $applied_filters;
@@ -240,15 +243,10 @@ class SDBrowseDataPage extends QueryPage {
 	 * all remaining filters
 	 */
 	function createTempTable( $category, $subcategory, $subcategories, $applied_filters ) {
-		$dbw = wfGetDB( DB_MASTER );
+		$temporaryTableManager = new TemporaryTableManager( $this->dbr );
 
-		$temporaryTableManager = new TemporaryTableManager( $dbw );
-
-		$sql1 = "CREATE TEMPORARY TABLE semantic_drilldown_values ( id INT NOT NULL )";
+		$sql1 = "CREATE TEMPORARY TABLE semantic_drilldown_values ( id INT NOT NULL, INDEX id_index ( id ) )";
 		$temporaryTableManager->queryWithAutoCommit( $sql1, __METHOD__ );
-
-		$sql2 = "CREATE INDEX id_index ON semantic_drilldown_values ( id )";
-		$temporaryTableManager->queryWithAutoCommit( $sql2, __METHOD__ );
 
 		$sql3 = "INSERT INTO semantic_drilldown_values SELECT ids.smw_id AS id\n";
 		$sql3 .= $this->getSQLFromClause( $category, $subcategory, $subcategories, $applied_filters );
@@ -276,11 +274,10 @@ class SDBrowseDataPage extends QueryPage {
 	 * subcategory's child subcategories, to ensure completeness.
 	 */
 	function getSQLFromClauseForCategory( $subcategory, $child_subcategories ) {
-		$dbr = wfGetDB( DB_REPLICA );
-		$smwIDs = $dbr->tableName( SDUtils::getIDsTableName() );
-		$smwCategoryInstances = $dbr->tableName( SDUtils::getCategoryInstancesTableName() );
+		$smwIDs = $this->dbr->tableName( SDUtils::getIDsTableName() );
+		$smwCategoryInstances = $this->dbr->tableName( SDUtils::getCategoryInstancesTableName() );
 		$ns_cat = NS_CATEGORY;
-		$subcategory_escaped = $dbr->addQuotes( $subcategory );
+		$subcategory_escaped = $this->dbr->addQuotes( $subcategory );
 		$sql = "FROM semantic_drilldown_values sdv
 	JOIN $smwCategoryInstances inst
 	ON sdv.id = inst.s_id
@@ -288,7 +285,7 @@ class SDBrowseDataPage extends QueryPage {
 		(SELECT MIN(smw_id) FROM $smwIDs
 		WHERE smw_namespace = $ns_cat AND (smw_title = $subcategory_escaped ";
 		foreach ( $child_subcategories as $i => $subcat ) {
-			$subcat_escaped = $dbr->addQuotes( $subcat );
+			$subcat_escaped = $this->dbr->addQuotes( $subcat );
 			$sql .= "OR smw_title = $subcat_escaped ";
 		}
 		$sql .= ")) ";
@@ -301,9 +298,8 @@ class SDBrowseDataPage extends QueryPage {
 	 * category, subcategory and filters.
 	 */
 	function getSQLFromClause( $category, $subcategory, $subcategories, $applied_filters ) {
-		$dbr = wfGetDB( DB_REPLICA );
-		$smwIDs = $dbr->tableName( SDUtils::getIDsTableName() );
-		$smwCategoryInstances = $dbr->tableName( SDUtils::getCategoryInstancesTableName() );
+		$smwIDs = $this->dbr->tableName( SDUtils::getIDsTableName() );
+		$smwCategoryInstances = $this->dbr->tableName( SDUtils::getCategoryInstancesTableName() );
 		$cat_ns = NS_CATEGORY;
 		$prop_ns = SMW_NS_PROPERTY;
 
@@ -322,7 +318,7 @@ class SDBrowseDataPage extends QueryPage {
 				}
 			}
 			if ( $includes_none ) {
-				$property_table_name = $dbr->tableName( $af->filter->getTableName() );
+				$property_table_name = $this->dbr->tableName( $af->filter->getTableName() );
 				if ( $af->filter->property_type === 'page' ) {
 					$property_table_nickname = "nr$i";
 					$property_field = 'p_id';
@@ -347,7 +343,7 @@ class SDBrowseDataPage extends QueryPage {
 		}
 		foreach ( $applied_filters as $i => $af ) {
 			$sql .= "\n	";
-			$property_table_name = $dbr->tableName( $af->filter->getTableName() );
+			$property_table_name = $this->dbr->tableName( $af->filter->getTableName() );
 			if ( $af->filter->property_type === 'page' ) {
 				if ( $includes_none ) {
 					$sql .= "LEFT OUTER ";
@@ -405,12 +401,10 @@ class SDBrowseDataPage extends QueryPage {
 	 * set of filters and either a new subcategory or a new filter.
 	 */
 	function getNumResults( $subcategory, $subcategories, $new_filter = null ) {
-		$dbw = wfGetDB( DB_MASTER );
-
 		// Escape the given values to prevent SQL injection
-		$subcategory = $dbw->addQuotes( $subcategory );
+		$subcategory = $this->dbr->addQuotes( $subcategory );
 		foreach ( $subcategories as $key => $value ) {
-			$subcategories[$key] = $dbw->addQuotes( $value );
+			$subcategories[$key] = $this->dbr->addQuotes( $value );
 		}
 
 		$sql = "SELECT COUNT(DISTINCT sdv.id) ";
@@ -419,9 +413,9 @@ class SDBrowseDataPage extends QueryPage {
 		} else {
 			$sql .= $this->getSQLFromClauseForCategory( $subcategory, $subcategories );
 		}
-		$res = $dbw->query( $sql );
-		$row = $dbw->fetchRow( $res );
-		$dbw->freeResult( $res );
+		$res = $this->dbr->query( $sql );
+		$row = $this->dbr->fetchRow( $res );
+		$this->dbr->freeResult( $res );
 		return $row[0];
 	}
 
@@ -965,7 +959,7 @@ END;
 		$found_results_for_filter = false;
 		if ( empty( $f->allowed_values ) ) {
 			if ( $f->property_type == 'date' ) {
-				list( $filter_values, $lower_date, $upper_date ) = $f->getTimePeriodValues();
+				[ $filter_values, $lower_date, $upper_date ] = $f->getTimePeriodValues();
 			} else {
 				$filter_values = $f->getAllValues();
 			}
@@ -1242,6 +1236,10 @@ END;
 		return $params;
 	}
 
+	function getRecacheDB() {
+		return $this->dbr;
+	}
+
 	function getSQL() {
 		// QueryPage uses the value from this SQL in an ORDER clause,
 		// so return page_title as title.
@@ -1299,7 +1297,7 @@ END;
 		// only one set of params is handled for now
 		if ( count( $all_display_params ) > 0 ) {
 			$display_params = array_map( 'trim', $all_display_params[0] );
-			list( $querystring, $params, $printouts ) = SMWQueryProcessor::getComponentsFromFunctionParams( $display_params, false );
+			[ $querystring, $params, $printouts ] = SMWQueryProcessor::getComponentsFromFunctionParams( $display_params, false );
 		}
 		if ( !empty( $querystring ) ) {
 			$query = SMWQueryProcessor::createQuery( $querystring, $params );

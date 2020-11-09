@@ -1,4 +1,7 @@
 <?php
+
+use MediaWiki\MediaWikiServices;
+
 /**
  * Defines a class, SDAppliedFilter, that adds a value or a value range
  * onto a an SDFilter instance.
@@ -14,6 +17,12 @@ class SDAppliedFilter {
 	var $upper_date;
 	var $lower_date_string;
 	var $upper_date_string;
+
+	private $dbr;
+
+	public function __construct() {
+		$this->dbr = MediaWikiServices::getInstance()->getService( SDDatabase::class )->getConnection();
+	}
 
 	static function create( $filter, $values, $search_terms = null, $lower_date = null, $upper_date = null ) {
 		$af = new SDAppliedFilter();
@@ -110,7 +119,6 @@ class SDAppliedFilter {
 		}
 
 		$sql = "(";
-		$dbr = wfGetDB( DB_REPLICA );
 		if ( $this->search_terms != null ) {
 			$quoteReplace = ( $wgDBtype == 'postgres' ? "''" : "\'" );
 			foreach ( $this->search_terms as $i => $search_term ) {
@@ -165,7 +173,7 @@ class SDAppliedFilter {
 					$sql .= "$value_field < {$fv->upper_limit} ";
 				}
 			} elseif ( $this->filter->property_type == 'date' ) {
-				list( $yearValue, $monthValue, $dayValue ) = SDUtils::getDateFunctions( $value_field );
+				[ $yearValue, $monthValue, $dayValue ] = SDUtils::getDateFunctions( $value_field );
 				if ( $fv->time_period == 'day' ) {
 					$sql .= "$yearValue = {$fv->year} AND $monthValue = {$fv->month} AND $dayValue = {$fv->day} ";
 				} elseif ( $fv->time_period == 'month' ) {
@@ -180,7 +188,7 @@ class SDAppliedFilter {
 				if ( $this->filter->property_type === 'page' ) {
 					$value = str_replace( ' ', '_', $value );
 				}
-				$sql .= "$value_field = '{$dbr->strencode($value)}'";
+				$sql .= "$value_field = '{$this->dbr->strencode($value)}'";
 			}
 		}
 		$sql .= ")";
@@ -195,14 +203,13 @@ class SDAppliedFilter {
 	function getAllOrValues( $category ) {
 		$possible_values = [];
 		$property_value = $this->filter->escaped_property;
-		$dbr = wfGetDB( DB_REPLICA );
-		$property_table_name = $dbr->tableName( $this->filter->getTableName() );
+		$property_table_name = $this->dbr->tableName( $this->filter->getTableName() );
 		if ( $this->filter->property_type != 'date' ) {
 			$value_field = $this->filter->getValueField();
 		} else {
 			// Is this necessary?
 			$date_field = $this->filter->getDateField();
-			list( $yearValue, $monthValue, $dayValue ) = SDUtils::getDateFunctions( $date_field );
+			[ $yearValue, $monthValue, $dayValue ] = SDUtils::getDateFunctions( $date_field );
 			if ( $this->filter->getTimePeriod() == 'day' ) {
 				$value_field = "$yearValue, $monthValue, $dayValue";
 			} elseif ( $this->filter->getTimePeriod() == 'month' ) {
@@ -213,8 +220,8 @@ class SDAppliedFilter {
 				$value_field = $yearValue;
 			}
 		}
-		$smwIDs = $dbr->tableName( SDUtils::getIDsTableName() );
-		$smwCategoryInstances = $dbr->tableName( SDUtils::getCategoryInstancesTableName() );
+		$smwIDs = $this->dbr->tableName( SDUtils::getIDsTableName() );
+		$smwCategoryInstances = $this->dbr->tableName( SDUtils::getCategoryInstancesTableName() );
 		$cat_ns = NS_CATEGORY;
 		$sql = "SELECT $value_field
 	FROM $property_table_name p
@@ -229,8 +236,8 @@ class SDAppliedFilter {
 	AND cat_ids.smw_title = '$category'
 	GROUP BY $value_field
 	ORDER BY $value_field";
-		$res = $dbr->query( $sql );
-		while ( $row = $dbr->fetchRow( $res ) ) {
+		$res = $this->dbr->query( $sql );
+		while ( $row = $this->dbr->fetchRow( $res ) ) {
 			if ( $this->filter->property_type == 'date' && $this->filter->getTimePeriod() == 'month' ) {
 				$value_string = SDUtils::monthToString( $row[1] ) . " " . $row[0];
 			} else {
@@ -239,7 +246,7 @@ class SDAppliedFilter {
 			}
 			$possible_values[] = $value_string;
 		}
-		$dbr->freeResult( $res );
+		$this->dbr->freeResult( $res );
 		return $possible_values;
 	}
 

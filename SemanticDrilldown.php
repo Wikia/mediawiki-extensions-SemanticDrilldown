@@ -40,6 +40,7 @@ $wgAutoloadClasses['SDBrowseData'] = $sdgIP . '/specials/SD_BrowseData.php';
 $wgAutoloadClasses['SDBrowseDataPage'] = $sdgIP . '/specials/SD_BrowseData.php';
 
 $wgAutoloadClasses['SDUtils'] = $sdgIP . '/includes/SD_Utils.php';
+$wgAutoloadClasses['SDDatabase'] = $sdgIP . '/includes/SD_Database.php';
 $wgAutoloadClasses['SDFilter'] = $sdgIP . '/includes/SD_Filter.php';
 $wgAutoloadClasses['SDFilterValue'] = $sdgIP . '/includes/SD_FilterValue.php';
 $wgAutoloadClasses['SDAppliedFilter'] = $sdgIP . '/includes/SD_AppliedFilter.php';
@@ -57,6 +58,8 @@ $wgHooks['ParserAfterTidy'][] = 'SDUtils::handleShowAndHide';
 $wgHooks['PageSchemasRegisterHandlers'][] = 'SDPageSchemas::registerClass';
 $wgHooks['ParserFirstCallInit'][] = 'SDParserFunctions::registerFunctions';
 $wgHooks['UnitTestsList'][] = 'SDUtils::onUnitTestsList';
+
+$wgServiceWiringFiles[] = __DIR__ . '/ServiceWiring.php';
 
 # ##
 # This is the path to your installation of Semantic Drilldown as
