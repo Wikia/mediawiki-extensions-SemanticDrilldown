@@ -1,7 +1,7 @@
 <?php
 
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\ILBFactory;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Defines a class, SDDatabase, that holds connection to DB.
@@ -12,8 +12,7 @@ class SDDatabase {
 	/** @var IDatabase */
 	private $connection;
 
-	public function __construct( ILBFactory $factory, string $dbHost, string $dbName ) {
-		$lb = $factory->getExternalLB( $dbHost );
+	public function __construct( ILoadBalancer $lb, $dbName = false ) {
 		$this->connection = $lb->getConnectionRef( DB_REPLICA, [], $dbName );
 	}
 

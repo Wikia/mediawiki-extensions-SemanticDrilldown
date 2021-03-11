@@ -176,7 +176,7 @@ class SDBrowseDataPage extends QueryPage {
 	function __construct( $category, $subcategory, $applied_filters, $remaining_filters, $offset, $limit ) {
 		parent::__construct( 'BrowseData' );
 
-		$this->dbr = MediaWikiServices::getInstance()->getService( SDDatabase::class )->getConnection();
+		$this->dbr = MediaWikiServices::getInstance()->getService( 'SDDatabase' )->getConnection();
 		$this->category = $category;
 		$this->subcategory = $subcategory;
 		$this->applied_filters = $applied_filters;

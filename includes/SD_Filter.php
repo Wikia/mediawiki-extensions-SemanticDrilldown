@@ -25,7 +25,7 @@ class SDFilter {
 	private $dbr;
 
 	public function __construct() {
-		$this->dbr = MediaWikiServices::getInstance()->getService( SDDatabase::class )->getConnection();
+		$this->dbr = MediaWikiServices::getInstance()->getService( 'SDDatabase' )->getConnection();
 	}
 
 	public function setName( $name ) {
