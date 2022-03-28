@@ -14,6 +14,12 @@ class SDAppliedFilter {
 	public $upper_date;
 	public $lower_date_string;
 	public $upper_date_string;
+	/** @var \SMW\Store|SMWStore */
+	private $store;
+
+	public function __construct() {
+		$this->store = SDUtils::getSMWStore();
+	}
 
 	public static function create( $filter, $values, $search_terms = null, $lower_date = null, $upper_date = null ) {
 		$af = new SDAppliedFilter();
@@ -110,7 +116,7 @@ class SDAppliedFilter {
 		}
 
 		$sql = "(";
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		if ( $this->search_terms != null ) {
 			$quoteReplace = ( $wgDBtype == 'postgres' ? "''" : "\'" );
 			foreach ( $this->search_terms as $i => $search_term ) {
@@ -195,7 +201,7 @@ class SDAppliedFilter {
 	public function getAllOrValues( $category ) {
 		$possible_values = [];
 		$property_value = $this->filter->escaped_property;
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		$property_table_name = $dbr->tableName( $this->filter->getTableName() );
 		if ( $this->filter->property_type != 'date' ) {
 			$value_field = $this->filter->getValueField();
