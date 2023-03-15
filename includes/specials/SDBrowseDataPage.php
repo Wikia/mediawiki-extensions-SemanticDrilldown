@@ -11,6 +11,7 @@ class SDBrowseDataPage extends QueryPage {
 	private $applied_filters = [];
 	private $remaining_filters = [];
 	private $show_single_cat = false;
+	private SMWStore $store;
 
 	/**
 	 * Initialize the variables of this page
@@ -24,8 +25,9 @@ class SDBrowseDataPage extends QueryPage {
 		$this->remaining_filters = $remaining_filters;
 		$this->offset = $offset;
 		$this->limit = $limit;
+		$this->store = SDUtils::getSMWStore();
 
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		$categorylinks = $dbr->tableName( 'categorylinks' );
 		$page = $dbr->tableName( 'page' );
 		$cat_ns = NS_CATEGORY;
@@ -84,15 +86,12 @@ class SDBrowseDataPage extends QueryPage {
 	 * all remaining filters
 	 */
 	private function createTempTable( $category, $subcategory, $subcategories, $applied_filters ) {
-		$dbw = wfGetDB( DB_MASTER );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 
-		$temporaryTableManager = new TemporaryTableManager( $dbw );
+		$temporaryTableManager = new TemporaryTableManager( $dbr );
 
-		$sql1 = "CREATE TEMPORARY TABLE semantic_drilldown_values ( id INT NOT NULL )";
+		$sql1 = "CREATE TEMPORARY TABLE semantic_drilldown_values ( id INT NOT NULL, INDEX id_index ( id ) )";
 		$temporaryTableManager->queryWithAutoCommit( $sql1, __METHOD__ );
-
-		$sql2 = "CREATE INDEX id_index ON semantic_drilldown_values ( id )";
-		$temporaryTableManager->queryWithAutoCommit( $sql2, __METHOD__ );
 
 		$sql3 = "INSERT INTO semantic_drilldown_values SELECT ids.smw_id AS id\n";
 		$sql3 .= $this->getSQLFromClause( $category, $subcategory, $subcategories, $applied_filters );
@@ -120,7 +119,7 @@ class SDBrowseDataPage extends QueryPage {
 	 * subcategory's child subcategories, to ensure completeness.
 	 */
 	private function getSQLFromClauseForCategory( $subcategory, $child_subcategories ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		$smwIDs = $dbr->tableName( SDUtils::getIDsTableName() );
 		$smwCategoryInstances = $dbr->tableName( SDUtils::getCategoryInstancesTableName() );
 		$ns_cat = NS_CATEGORY;
@@ -145,7 +144,7 @@ class SDBrowseDataPage extends QueryPage {
 	 * category, subcategory and filters.
 	 */
 	private function getSQLFromClause( $category, $subcategory, $subcategories, $applied_filters ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		$smwIDs = $dbr->tableName( SDUtils::getIDsTableName() );
 		$smwCategoryInstances = $dbr->tableName( SDUtils::getCategoryInstancesTableName() );
 		$cat_ns = NS_CATEGORY;
@@ -249,12 +248,12 @@ class SDBrowseDataPage extends QueryPage {
 	 * set of filters and either a new subcategory or a new filter.
 	 */
 	private function getNumResults( $subcategory, $subcategories, $new_filter = null ) {
-		$dbw = wfGetDB( DB_MASTER );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 
 		// Escape the given values to prevent SQL injection
-		$subcategory = $dbw->addQuotes( $subcategory );
+		$subcategory = $dbr->addQuotes( $subcategory );
 		foreach ( $subcategories as $key => $value ) {
-			$subcategories[$key] = $dbw->addQuotes( $value );
+			$subcategories[$key] = $dbr->addQuotes( $value );
 		}
 
 		$sql = "SELECT COUNT(DISTINCT sdv.id) ";
@@ -263,7 +262,7 @@ class SDBrowseDataPage extends QueryPage {
 		} else {
 			$sql .= $this->getSQLFromClauseForCategory( $subcategory, $subcategories );
 		}
-		$res = $dbw->query( $sql );
+		$res = $dbr->query( $sql );
 		$row = $res->fetchRow();
 		return $row[0];
 	}
@@ -1243,4 +1242,7 @@ END;
 		return "\n			<br style=\"clear: both\" />\n";
 	}
 
+	protected function getRecacheDB(){
+		return $this->store->getConnection( DB_REPLICA );
+	}
 }

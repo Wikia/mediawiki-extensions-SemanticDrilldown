@@ -18,6 +18,11 @@ class SDFilter {
 	public $db_table_name;
 	public $db_value_field;
 	public $db_date_field;
+	private SMWStore $store;
+
+	public function __construct() {
+		$this->store = SDUtils::getSMWStore();
+	}
 
 	public function setName( $name ) {
 		$this->name = $name;
@@ -228,11 +233,11 @@ class SDFilter {
 			return $this->time_period;
 		}
 
-		$dbw = wfGetDB( DB_MASTER );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		$property_value = $this->escaped_property;
 		$date_field = $this->getDateField();
-		$datesTable = $dbw->tableName( $this->getTableName() );
-		$idsTable = $dbw->tableName( SDUtils::getIDsTableName() );
+		$datesTable = $dbr->tableName( $this->getTableName() );
+		$idsTable = $dbr->tableName( SDUtils::getIDsTableName() );
 		$sql = <<<END
 	SELECT MIN($date_field), MAX($date_field)
 	FROM semantic_drilldown_values sdv
@@ -241,7 +246,7 @@ class SDFilter {
 	WHERE p_ids.smw_title = '$property_value'
 
 END;
-		$res = $dbw->query( $sql );
+		$res = $dbr->query( $sql );
 		$row = $res->fetchRow();
 		$minDate = $row[0];
 		if ( $minDate === null ) {
@@ -285,11 +290,11 @@ END;
 		$possible_dates = [];
 		$property_value = $this->escaped_property;
 		$date_field = $this->getDateField();
-		$dbw = wfGetDB( DB_MASTER );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		list( $yearValue, $monthValue, $dayValue ) = SDUtils::getDateFunctions( $date_field );
 		$fields = "$yearValue, $monthValue, $dayValue";
-		$datesTable = $dbw->tableName( $this->getTableName() );
-		$idsTable = $dbw->tableName( SDUtils::getIDsTableName() );
+		$datesTable = $dbr->tableName( $this->getTableName() );
+		$idsTable = $dbr->tableName( SDUtils::getIDsTableName() );
 		$sql = <<<END
 	SELECT $fields, count(*) AS matches
 	FROM semantic_drilldown_values sdv
@@ -307,7 +312,7 @@ END;
 		$min_date_padded = '';
 		$max_date_padded = '';
 
-		$res = $dbw->query( $sql );
+		$res = $dbr->query( $sql );
 		while ( $row = $res->fetchRow() ) {
 			$timePeriod = $this->getTimePeriod();
 
@@ -408,10 +413,10 @@ END;
 	public function getAllValues() {
 		$possible_values = [];
 		$property_value = $this->escaped_property;
-		$dbw = wfGetDB( DB_MASTER );
-		$property_table_name = $dbw->tableName( $this->getTableName() );
+		$dbr = $this->store->getConnection( DB_REPLICA );
+		$property_table_name = $dbr->tableName( $this->getTableName() );
 		$value_field = $this->getValueField();
-		$smw_ids = $dbw->tableName( SDUtils::getIDsTableName() );
+		$smw_ids = $dbr->tableName( SDUtils::getIDsTableName() );
 		$prop_ns = SMW_NS_PROPERTY;
 		$sql = <<<END
 	SELECT $value_field, count(DISTINCT sdv.id)
@@ -430,7 +435,7 @@ END;
 	ORDER BY $value_field
 
 END;
-		$res = $dbw->query( $sql );
+		$res = $dbr->query( $sql );
 		while ( $row = $res->fetchRow() ) {
 			$value_string = str_replace( '_', ' ', $row[0] );
 			// We check this here, and not in the SQL, because
@@ -451,11 +456,11 @@ END;
 	 * and for getting the set of 'None' values.
 	 */
 	public function createTempTable() {
-		$dbw = wfGetDB( DB_MASTER );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 
-		$smw_ids = $dbw->tableName( SDUtils::getIDsTableName() );
+		$smw_ids = $dbr->tableName( SDUtils::getIDsTableName() );
 
-		$valuesTable = $dbw->tableName( $this->getTableName() );
+		$valuesTable = $dbr->tableName( $this->getTableName() );
 		$value_field = $this->getValueField();
 
 		$query_property = $this->escaped_property;
@@ -472,7 +477,7 @@ END;
 		}
 		$sql .= "	WHERE p_ids.smw_title = '$query_property'";
 
-		$temporaryTableManager = new TemporaryTableManager( $dbw );
+		$temporaryTableManager = new TemporaryTableManager( $dbr );
 		$temporaryTableManager->queryWithAutoCommit( $sql, __METHOD__ );
 	}
 
@@ -480,12 +485,12 @@ END;
 	 * Deletes the temporary table.
 	 */
 	public function dropTempTable() {
-		$dbw = wfGetDB( DB_MASTER );
+		$dbr = $this->store->getConnection( DB_REPLICA );
 		// DROP TEMPORARY TABLE would be marginally safer, but it's
 		// not supported on all RDBMS's.
 		$sql = "DROP TABLE semantic_drilldown_filter_values";
 
-		$temporaryTableManager = new TemporaryTableManager( $dbw );
+		$temporaryTableManager = new TemporaryTableManager( $dbr );
 		$temporaryTableManager->queryWithAutoCommit( $sql, __METHOD__ );
 	}
 }
