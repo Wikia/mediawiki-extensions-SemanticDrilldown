@@ -63,7 +63,7 @@ $wgHooks['UnitTestsList'][] = 'SDUtils::onUnitTestsList';
 # seen from the web. Change it if required ($wgScriptPath is the
 # path to the base directory of your wiki). No final slash.
 # # TODO: fix hardcoded path
-$sdgScriptPath = $wgScriptPath . '/extensions/SemanticDrilldown';
+$sdgScriptPath = $wgExtensionAssetsPath . '/SemanticDrilldown';
 # #
 
 # ##
