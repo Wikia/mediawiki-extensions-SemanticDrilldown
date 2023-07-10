@@ -86,9 +86,9 @@ class SDBrowseDataPage extends QueryPage {
 	 * all remaining filters
 	 */
 	private function createTempTable( $category, $subcategory, $subcategories, $applied_filters ) {
-		$dbr = $this->store->getConnection( DB_REPLICA );
+		$dbw = $this->store->getConnection( 'mw.db' );
 
-		$temporaryTableManager = new TemporaryTableManager( $dbr );
+		$temporaryTableManager = new TemporaryTableManager( $dbw );
 
 		$sql1 = "CREATE TEMPORARY TABLE semantic_drilldown_values ( id INT NOT NULL, INDEX id_index ( id ) )";
 		$temporaryTableManager->queryWithAutoCommit( $sql1, __METHOD__ );
@@ -248,7 +248,7 @@ class SDBrowseDataPage extends QueryPage {
 	 * set of filters and either a new subcategory or a new filter.
 	 */
 	private function getNumResults( $subcategory, $subcategories, $new_filter = null ) {
-		$dbr = $this->store->getConnection( DB_REPLICA );
+		$dbr = $this->store->getConnection( 'mw.db' );
 
 		// Escape the given values to prevent SQL injection
 		$subcategory = $dbr->addQuotes( $subcategory );

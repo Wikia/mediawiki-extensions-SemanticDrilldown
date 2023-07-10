@@ -413,7 +413,7 @@ END;
 	public function getAllValues() {
 		$possible_values = [];
 		$property_value = $this->escaped_property;
-		$dbr = $this->store->getConnection( DB_REPLICA );
+		$dbr = $this->store->getConnection( 'mw.db' );
 		$property_table_name = $dbr->tableName( $this->getTableName() );
 		$value_field = $this->getValueField();
 		$smw_ids = $dbr->tableName( SDUtils::getIDsTableName() );
@@ -456,11 +456,11 @@ END;
 	 * and for getting the set of 'None' values.
 	 */
 	public function createTempTable() {
-		$dbr = $this->store->getConnection( DB_REPLICA );
+		$dbw = $this->store->getConnection( 'mw.db' );
 
-		$smw_ids = $dbr->tableName( SDUtils::getIDsTableName() );
+		$smw_ids = $dbw->tableName( SDUtils::getIDsTableName() );
 
-		$valuesTable = $dbr->tableName( $this->getTableName() );
+		$valuesTable = $dbw->tableName( $this->getTableName() );
 		$value_field = $this->getValueField();
 
 		$query_property = $this->escaped_property;
@@ -477,7 +477,7 @@ END;
 		}
 		$sql .= "	WHERE p_ids.smw_title = '$query_property'";
 
-		$temporaryTableManager = new TemporaryTableManager( $dbr );
+		$temporaryTableManager = new TemporaryTableManager( $dbw );
 		$temporaryTableManager->queryWithAutoCommit( $sql, __METHOD__ );
 	}
 
@@ -485,12 +485,12 @@ END;
 	 * Deletes the temporary table.
 	 */
 	public function dropTempTable() {
-		$dbr = $this->store->getConnection( DB_REPLICA );
+		$dbw = $this->store->getConnection( 'mw.db' );
 		// DROP TEMPORARY TABLE would be marginally safer, but it's
 		// not supported on all RDBMS's.
 		$sql = "DROP TABLE semantic_drilldown_filter_values";
 
-		$temporaryTableManager = new TemporaryTableManager( $dbr );
+		$temporaryTableManager = new TemporaryTableManager( $dbw );
 		$temporaryTableManager->queryWithAutoCommit( $sql, __METHOD__ );
 	}
 }
