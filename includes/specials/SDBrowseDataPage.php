@@ -86,7 +86,7 @@ class SDBrowseDataPage extends QueryPage {
 	 * all remaining filters
 	 */
 	private function createTempTable( $category, $subcategory, $subcategories, $applied_filters ) {
-		$dbw = $this->store->getConnection( 'mw.db' );
+		$dbw = $this->store->getConnection( 'mw.db.queryengine' );
 
 		$temporaryTableManager = new TemporaryTableManager( $dbw );
 
@@ -248,7 +248,7 @@ class SDBrowseDataPage extends QueryPage {
 	 * set of filters and either a new subcategory or a new filter.
 	 */
 	private function getNumResults( $subcategory, $subcategories, $new_filter = null ) {
-		$dbr = $this->store->getConnection( 'mw.db' );
+		$dbr = $this->store->getConnection( 'mw.db.queryengine' );
 
 		// Escape the given values to prevent SQL injection
 		$subcategory = $dbr->addQuotes( $subcategory );

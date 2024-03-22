@@ -413,7 +413,7 @@ END;
 	public function getAllValues() {
 		$possible_values = [];
 		$property_value = $this->escaped_property;
-		$dbr = $this->store->getConnection( 'mw.db' );
+		$dbr = $this->store->getConnection( 'mw.db.queryengine' );
 		$property_table_name = $dbr->tableName( $this->getTableName() );
 		$value_field = $this->getValueField();
 		$smw_ids = $dbr->tableName( SDUtils::getIDsTableName() );
@@ -456,7 +456,7 @@ END;
 	 * and for getting the set of 'None' values.
 	 */
 	public function createTempTable() {
-		$dbw = $this->store->getConnection( 'mw.db' );
+		$dbw = $this->store->getConnection( 'mw.db.queryengine' );
 
 		$smw_ids = $dbw->tableName( SDUtils::getIDsTableName() );
 
@@ -485,7 +485,7 @@ END;
 	 * Deletes the temporary table.
 	 */
 	public function dropTempTable() {
-		$dbw = $this->store->getConnection( 'mw.db' );
+		$dbw = $this->store->getConnection( 'mw.db.queryengine' );
 		// DROP TEMPORARY TABLE would be marginally safer, but it's
 		// not supported on all RDBMS's.
 		$sql = "DROP TABLE semantic_drilldown_filter_values";
