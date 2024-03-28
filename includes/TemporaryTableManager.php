@@ -23,6 +23,8 @@ class TemporaryTableManager {
 	 * @param string $method method name to log for query, defaults to this method
 	 */
 	public function queryWithAutoCommit( $sqlQuery, $method = __METHOD__ ) {
+		// PLATFORM-9138: temporary table queries with leading spaces are not recognized properly by mediawiki
+		$sqlQuery = trim( $sqlQuery );
 		$this->databaseConnection->query( $sqlQuery, $method );
 	}
 }
